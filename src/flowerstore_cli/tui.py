@@ -111,6 +111,23 @@ def nice_day(d: dt.date) -> str:
     return label
 
 
+def by_time(iso: str | None) -> str:
+    """When orders close, short enough for the side pane: "by 1:00 PM" today, else with the day."""
+    if not iso:
+        return ""
+    t = dt.datetime.fromisoformat(iso)
+    clock = t.strftime("%-I:%M %p")
+    return f"by {clock}" if t.date() == dates.now().date() else f"by {clock} {t.strftime('%a')}"
+
+
+# The storefront's own words for an order's delivery type (Order.vue on the tracking page).
+DELIVERY_LABEL = {
+    "DeliveryTimeFrame": "Delivery", "ExpressDelivery": "Express delivery",
+    "ShipOutSetting": "Ships", "CampaignShipOutSetting": "Ships",
+    "PickupLocation": "Pickup", "DigitalGift": "Digital gift",
+}
+
+
 def nice_time(iso: str | None) -> str:
     if not iso:
         return ""
@@ -249,7 +266,8 @@ class HomeScreen(Screen):
         self.city = m
         self.query_one("#city", Input).value = m["name"]
         self.query_one("#city-list", OptionList).remove_class("open")
-        self.query_one("#day", Select).focus()
+        # Enter again searches with the default day and budget; shift+tab reaches them.
+        self.query_one("#find", Button).focus()
 
     def on_key(self, event) -> None:
         lst = self.query_one("#city-list", OptionList)
@@ -481,10 +499,11 @@ def detail_markup(data: dict[str, Any], compact: bool) -> str:
         out.append(f"  {escape(v['name']):<26} [b]{peso(v['price'])}[/]{was}{stock}{note}")
     out += ["", f"[b]Delivery {escape(nice_day(dt.date.fromisoformat(s['date'])))}[/]"]
     if s["slots"]:
+        width = max(len(slot["name"] or "") for slot in s["slots"])
+        out.append("  [dim]Slot".ljust(width + 9) + "Order[/]")
         for slot in s["slots"]:
-            by = nice_time(slot.get("order_by"))
-            out.append(f"  {escape(slot['name']):<26} [dim]order by {by}[/]" if by
-                       else f"  {escape(slot['name'])}")
+            by = by_time(slot.get("order_by"))
+            out.append(f"  {escape((slot['name'] or '').ljust(width))}  [dim]{by}[/]")
     else:
         out.append(f"  [dim]{escape(s.get('notice') or 'No slots')}[/]")
     if p.get("advance_days"):
@@ -644,7 +663,8 @@ class TrackScreen(Screen):
                  f"[b]{escape(str(t.get('status') or 'Unknown'))}[/]"]
         when = " ".join(str(x) for x in (t.get("delivery_date"), t.get("delivery_time")) if x)
         if when:
-            lines.append(f"{escape(str(t.get('delivery_type') or 'Delivery'))}: {escape(when)}")
+            label = DELIVERY_LABEL.get(t.get("delivery_type") or "", "Delivery")
+            lines.append(f"{label}: {escape(when)}")
         lines += [""] + [f"  {i['quantity']} × {escape(i['name'] or '')}  [dim]{peso(i.get('price'))}[/]"
                          for i in t["items"]]
         if t.get("total") is not None:

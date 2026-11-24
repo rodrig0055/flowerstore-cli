@@ -74,10 +74,11 @@ def test_search_results_product_and_back():
             assert await until(pilot, lambda: app.screen.query_one("#city-list").has_class("open"))
             await pilot.press("down", "enter")
             assert app.screen.city["city_id"] == "137602"
-            app.screen.find()
+            await pilot.press("enter")  # focus is on Find gifts after picking a city
             assert await until(pilot, lambda: isinstance(app.screen, tui.ResultsScreen) and app.screen.rows)
             assert "Makati" in text(app, "#summary")
-            assert await until(pilot, lambda: "order by" in text(app, "#detail-body"))
+            assert await until(pilot, lambda: "10AM - 1PM  " in text(app, "#detail-body"))
+            assert "by 9:00 AM" in text(app, "#detail-body")
             assert "₱1,499" in text(app, "#detail-body")
             await pilot.press("p")  # cheapest first, then dearest first
             await pilot.press("p")
