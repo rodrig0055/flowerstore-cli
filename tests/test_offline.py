@@ -124,3 +124,22 @@ def test_city_lookup_retries_without_city_and_picks_the_exact_one(monkeypatch):
     loc = cli.resolve_location(c, None, "Davao City")
     assert c.asked == ["Davao City", "davao"]
     assert (loc["city_id"], loc["city"], loc["hub"]) == ("112402", "City of Davao", "Davao City")
+
+
+@pytest.mark.parametrize("argv,query", [
+    (["search", "crocheted", "sunflowers", "--city", "Davao City"], "crocheted sunflowers"),
+    (["search", "red roses", "--max", "2000"], "red roses"),
+    (["search"], ""),
+    (["cities", "davao", "city"], "davao city"),
+])
+def test_unquoted_words_make_one_query(monkeypatch, argv, query):
+    from flowerstore_cli import cli
+    seen = {}
+
+    def fake(c, a):
+        seen["query"] = a.query
+
+    monkeypatch.setattr(cli, "cmd_search", fake)
+    monkeypatch.setattr(cli, "cmd_cities", fake)
+    assert cli.main(argv) == 0
+    assert seen["query"] == query
