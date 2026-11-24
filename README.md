@@ -58,8 +58,8 @@ flowerstore-tui
   variant prices and the slots still open that day, with the time orders close. `enter` opens
   the gift, `o` buys it on flowerstore.ph, `p` sorts by price.
 - **Gift page:** the full description, blocked dates and recent reviews. `[` and `]` change the day.
-- **Photos:** the side pane and the gift page show the product photo. Kitty, Ghostty and WezTerm
-  (Kitty graphics) and iTerm2, foot and Windows Terminal (Sixel) draw the real photo; other
+- **Photos:** the side pane and the gift page show the product photo. Kitty and Ghostty
+  (Kitty graphics) and iTerm2, WezTerm, foot and Windows Terminal (Sixel) draw the real photo; other
   terminals, such as Apple Terminal and VS Code, get coloured half-blocks.
 - **Track my order:** order number and email. `f` follows it: it checks every 5 minutes while the
   screen is open, and rings and notifies when the status, date or slot changes.
