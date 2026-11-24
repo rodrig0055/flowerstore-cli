@@ -364,12 +364,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_hubs)
 
     p = sub.add_parser("cities", help="cities matching a name, with the hub that delivers there")
-    p.add_argument("query")
+    p.add_argument("query", nargs="+", help="e.g. davao city (quotes optional)")
     p.add_argument("--limit", type=int, default=5)
     p.set_defaults(fn=cmd_cities)
 
     p = sub.add_parser("search", help="products matching words, from the cached catalog")
-    p.add_argument("query", nargs="?", default="", help="e.g. 'red roses' (empty lists everything)")
+    p.add_argument("query", nargs="*", help="e.g. red roses (quotes optional; none lists everything)")
     _loc_args(p)
     p.add_argument("--min", type=float, help="lowest price, PHP")
     p.add_argument("--max", type=float, help="highest price, PHP")
@@ -416,6 +416,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if isinstance(getattr(args, "query", None), list):
+        # Several words arrive as several arguments; the commands take one phrase.
+        args.query = " ".join(args.query)
     if getattr(args, "limit", 1) < 1:
         return _fail(UsageError("--limit must be at least 1"))
     client = Client()
