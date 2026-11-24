@@ -47,6 +47,7 @@ class Client:
         self._xsrf: str | None = None
         self._last = 0.0
         self.retries: list[dict[str, Any]] = []
+        self.memo: dict[Any, Any] = {}  # per-process answers that don't change between calls
 
     # -- transport -------------------------------------------------------------------------
 

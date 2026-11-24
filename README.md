@@ -41,6 +41,26 @@ flowerstore search "red roses" --city Makati --max 2000 --limit 3 \
 # 699.0 PHP  Rose Diffuser.
 ```
 
+## TUI
+
+A full-screen app over the same functions, with mouse or keyboard:
+
+```sh
+uv tool install './work/flowerstore-cli[tui]'
+flowerstore-tui
+```
+
+- **Home:** type what you want, then a city (pick it from the suggestions), the delivery day
+  and a budget.
+- **Results:** a table of gifts. On terminals 110+ columns wide, a side pane shows each gift's
+  variant prices and the slots still open that day, with the time orders close. `enter` opens
+  the gift, `o` buys it on flowerstore.ph, `p` sorts by price.
+- **Gift page:** the full description, blocked dates and recent reviews. `[` and `]` change the day.
+- **Track my order:** order number and email. `f` follows it: it checks every 5 minutes while the
+  screen is open, and rings and notifies when the status, date or slot changes.
+
+FlowerStore coral, blush and indigo, light or dark to match macOS (`ctrl+t` toggles). `f1` for help.
+
 ## Commands
 
 | Command | What it does |

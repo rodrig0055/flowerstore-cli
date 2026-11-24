@@ -99,7 +99,7 @@ def cmd_cities(c: Client, a) -> dict[str, Any]:
 
 
 def cmd_search(c: Client, a) -> dict[str, Any]:
-    loc = resolve_location(c, a.hub, a.city)
+    loc = getattr(a, "loc", None) or resolve_location(c, a.hub, a.city)
     products, meta = feed.load(c, refresh=a.refresh)
     results = feed.search(products, a.query or "", hub_id=loc and loc["hub_id"],
                           city_id=loc and loc["city_id"], min_price=a.min, max_price=a.max,
@@ -145,11 +145,20 @@ def _listing(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def cmd_bestsellers(c: Client, a) -> dict[str, Any]:
-    loc = resolve_location(c, a.hub, a.city) or default_location()
+    loc = _loc(c, a)
     r = c.api("search/best-sellers", {"hub_id": loc["hub_id"], "city_id": loc["city_id"],
                                       "per_page": a.limit}, label="best sellers")
     items = [_listing(i) for i in (r.get("data") or [])][: a.limit]
     return {"location": loc, "count": len(items), "products": items}
+
+
+def _loc(c: Client, a) -> dict[str, Any]:
+    """The location for a command: a pre-resolved `a.loc` (the TUI passes one) or the flags."""
+    return getattr(a, "loc", None) or resolve_location(c, a.hub, a.city) or default_location()
+
+
+def _props(c: Client, a) -> dict[str, Any]:
+    return getattr(a, "props", None) or _product_props(c, a.slug)
 
 
 def _product_props(c: Client, slug: str) -> dict[str, Any]:
@@ -184,17 +193,21 @@ def _variants(c: Client, product_id: int, hub_id: int, day: dt.date) -> list[dic
 
 
 def _blocked_dates(c: Client, vendor_id: int, hub_id: int, product_id: int) -> list[str]:
+    key = ("calendar", vendor_id, hub_id, product_id)
+    if key in c.memo:
+        return c.memo[key]
     rows = c.api("calendar-rules", {"vendor_id": vendor_id, "hub_id": hub_id,
                                     "product_ids": [product_id]}, label="calendar")
     today = dates.now().date().isoformat()
-    return sorted({d for d in rows if isinstance(d, str) and d >= today})
+    c.memo[key] = sorted({d for d in rows if isinstance(d, str) and d >= today})
+    return c.memo[key]
 
 
 def cmd_product(c: Client, a) -> dict[str, Any]:
     day = _date(a.date)
-    props = _product_props(c, a.slug)
+    props = _props(c, a)
     p = props["product"]
-    loc = resolve_location(c, a.hub, a.city) or default_location()
+    loc = _loc(c, a)
     ratings = props.get("product_ratings") or []
     return {
         "id": p["id"],
@@ -217,9 +230,9 @@ def cmd_product(c: Client, a) -> dict[str, Any]:
 
 def cmd_slots(c: Client, a) -> dict[str, Any]:
     day = _date(a.date)
-    props = _product_props(c, a.slug)
+    props = _props(c, a)
     p = props["product"]
-    loc = resolve_location(c, a.hub, a.city) or default_location()
+    loc = _loc(c, a)
     out: dict[str, Any] = {"product": {"id": p["id"], "slug": p["slug"], "name": p["name"]},
                            "location": loc, "date": day.isoformat(), "count": 0, "slots": [],
                            "notice": None}

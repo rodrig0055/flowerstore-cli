@@ -8,6 +8,12 @@ dependencies = ["curl_cffi>=0.7"]
 
 [project.scripts]
 flowerstore = "flowerstore_cli.cli:main"
+flowerstore-tui = "flowerstore_cli.tui:main"
+
+[project.optional-dependencies]
+tui = [
+    "textual>=1.0",
+]
 
 [build-system]
 requires = ["hatchling"]
