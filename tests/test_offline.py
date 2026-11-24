@@ -89,3 +89,38 @@ def test_order_by_uses_weekend_hour_on_weekends():
                                        ("orchids", "orchid"), ("dress", "dress")])
 def test_stem(word, stem):
     assert feed._stem(word) == stem
+
+
+@pytest.mark.parametrize("name,key", [("Davao City", "davao"), ("City of Davao", "davao"),
+                                      ("Cebu City", "cebu"), ("city of  Manila", "manila"),
+                                      ("Lapu-Lapu City", "lapu-lapu"), ("Makati", "makati"),
+                                      ("Quezon City", "quezon")])
+def test_city_key(name, key):
+    from flowerstore_cli import cli
+    assert cli.city_key(name) == key
+
+
+def test_city_lookup_retries_without_city_and_picks_the_exact_one(monkeypatch):
+    from flowerstore_cli import cli
+
+    class FakeClient:
+        def __init__(self):
+            self.asked = []
+
+        def api(self, path, payload=None, *, label):
+            if path == "city-hub":
+                self.asked.append(payload["name"])
+                if payload["name"] == "davao":
+                    return [{"value": "112402", "city_name": "City of Davao", "label": "Region XI"},
+                            {"value": "112403", "city_name": "Davao del Sur town", "label": "Region XI"}]
+                return []
+            if path == "change-hub":
+                return {"hub_id": 3}
+            if path == "hubs":
+                return [{"value": 3, "label": "Davao City"}]
+            raise AssertionError(path)
+
+    c = FakeClient()
+    loc = cli.resolve_location(c, None, "Davao City")
+    assert c.asked == ["Davao City", "davao"]
+    assert (loc["city_id"], loc["city"], loc["hub"]) == ("112402", "City of Davao", "Davao City")

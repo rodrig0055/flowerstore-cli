@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 import time
 import webbrowser
@@ -39,8 +40,24 @@ def get_hubs(c: Client) -> list[dict[str, Any]]:
     return [{"id": h["value"], "name": h["label"]} for h in c.api("hubs", label="hubs")]
 
 
+def city_key(name: str) -> str:
+    """A city name without "City"/"City of", so "Davao City" matches PSGC's "City of Davao"."""
+    key = re.sub(r"\s+", " ", feed.fold(name)).strip()
+    key = re.sub(r"^city of ", "", key)
+    key = re.sub(r" city$", "", key)
+    return key
+
+
 def find_cities(c: Client, query: str) -> list[dict[str, Any]]:
+    """Cities whose name contains `query`, as the site's location box finds them.
+
+    The site matches on PSGC names, which say "City of Davao" but "Cebu City", so a name that
+    finds nothing is tried again without "City"/"City of".
+    """
     rows = c.api("city-hub", {"name": query}, label="city lookup")
+    key = city_key(query)
+    if not rows and key and key != feed.fold(query).strip():
+        rows = c.api("city-hub", {"name": key}, label="city lookup")
     return [{"city_id": r["value"], "name": r["city_name"], "area": r["label"]} for r in rows]
 
 
@@ -60,7 +77,7 @@ def resolve_location(c: Client, hub: str | None, city: str | None) -> dict[str, 
             loc["city_id"] = city
         else:
             matches = find_cities(c, city)
-            exact = [m for m in matches if feed.fold(m["name"]) == feed.fold(city)]
+            exact = [m for m in matches if city_key(m["name"]) == city_key(city)]
             pick = exact if exact else matches
             if not pick:
                 raise UsageError(f"No city matches '{city}'. Try `flowerstore cities {city[:4]}`")
