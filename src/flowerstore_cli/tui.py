@@ -193,6 +193,15 @@ def show_photo(screen: Screen, selector: str, img: Any) -> None:
     widget.display = img is not None
 
 
+def status_text(t: dict[str, Any]) -> str:
+    """The store's status, plus the step behind it when the store only says "Processing"."""
+    status = str(t.get("status") or "Unknown")
+    stage = t.get("stage")
+    if stage and stage.lower() != status.lower():
+        return f"{status} · {stage}"
+    return status
+
+
 def system_is_dark() -> bool:
     if sys.platform != "darwin":
         return True
@@ -721,14 +730,14 @@ class TrackScreen(Screen):
 
     def show(self, t: dict[str, Any]) -> None:
         self.checked = dates.now().strftime("%-I:%M %p")
-        keys = ("status", "delivery_date", "delivery_time")
+        keys = ("status", "stage", "delivery_date", "delivery_time")
         snap = {k: t.get(k) for k in keys}
         if self.last is not None and snap != self.last:
             self.app.bell()
-            self.app.notify(f"{t['order']}: {t.get('status')}", title="Your order changed", timeout=15)
+            self.app.notify(f"{t['order']}: {status_text(t)}", title="Your order changed", timeout=15)
         self.last = snap
         lines = [f"[b]{escape(t['order'] or self.order)}[/]", "",
-                 f"[b]{escape(str(t.get('status') or 'Unknown'))}[/]"]
+                 f"[b]{escape(status_text(t))}[/]"]
         when = " ".join(str(x) for x in (t.get("delivery_date"), t.get("delivery_time")) if x)
         if when:
             label = DELIVERY_LABEL.get(t.get("delivery_type") or "", "Delivery")
