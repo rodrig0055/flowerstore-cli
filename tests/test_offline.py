@@ -143,3 +143,24 @@ def test_unquoted_words_make_one_query(monkeypatch, argv, query):
     monkeypatch.setattr(cli, "cmd_cities", fake)
     assert cli.main(argv) == 0
     assert seen["query"] == query
+
+
+def test_track_sends_only_the_order_and_email():
+    from flowerstore_cli import cli
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"order_name": "FS-1234567", "order_status": "Processing", "total_price": "1499.00",
+                    "new_order_items": [{"product_name": "Beautiful You", "quantity": 1, "price": "1499.00"}]}
+
+    class FakeClient:
+        def post(self, path, payload=None, *, label, allow=()):
+            self.sent = (path, payload)
+            return FakeResponse()
+
+    c = FakeClient()
+    out = cli._track(c, "FS-1234567", "me@example.com")
+    assert c.sent == ("track-order", {"contact_email": "me@example.com", "order_name": "FS-1234567"})
+    assert out["status"] == "Processing" and out["total"] == 1499

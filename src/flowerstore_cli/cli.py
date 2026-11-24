@@ -296,8 +296,8 @@ def _num(v: Any) -> float | int | None:
 
 
 def _track(c: Client, order: str, email: str) -> dict[str, Any]:
-    r = c.post("track-order", {"contact_email": email, "order_name": order,
-                               "show_shipping_address": False}, label="track order", allow=(422,))
+    r = c.post("track-order", {"contact_email": email, "order_name": order},
+               label="track order", allow=(422,))
     if r.status_code == 422:
         raise NotFoundError("No order with that number and email")
     o = r.json()
