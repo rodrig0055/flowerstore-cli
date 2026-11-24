@@ -12,9 +12,12 @@ API key.
 You need Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-uv tool install ./work/flowerstore-cli      # from this folder
+uv tool install "flowerstore-cli[tui] @ git+https://github.com/rodrig0055/flowerstore-cli"
 flowerstore --help
+flowerstore-tui
 ```
+
+Drop `[tui]` for the CLI alone.
 
 ## Quick start
 
@@ -40,6 +43,25 @@ flowerstore search "red roses" --city Makati --max 2000 --limit 3 \
 # 699.0 PHP  Bright Red Eternal Heart Box'
 # 699.0 PHP  Rose Diffuser.
 ```
+
+## TUI
+
+A full-screen app over the same functions, with mouse or keyboard:
+
+```sh
+flowerstore-tui
+```
+
+- **Home:** type what you want, then a city (pick it from the suggestions), the delivery day
+  and a budget.
+- **Results:** a table of gifts. On terminals 110+ columns wide, a side pane shows each gift's
+  variant prices and the slots still open that day, with the time orders close. `enter` opens
+  the gift, `o` buys it on flowerstore.ph, `p` sorts by price.
+- **Gift page:** the full description, blocked dates and recent reviews. `[` and `]` change the day.
+- **Track my order:** order number and email. `f` follows it: it checks every 5 minutes while the
+  screen is open, and rings and notifies when the status, date or slot changes.
+
+FlowerStore coral, blush and indigo, light or dark to match macOS (`ctrl+t` toggles). `f1` for help.
 
 ## Commands
 
@@ -111,7 +133,7 @@ codes:
 ## Development
 
 ```sh
-uv sync
-uv run --group dev pytest       # offline tests: feed parsing, search, cutoffs
+uv sync --all-extras --group dev
+uv run pytest                   # offline: feed parsing, search, cutoffs, and the TUI against fake data
 uv run flowerstore hubs         # live
 ```
