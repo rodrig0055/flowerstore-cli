@@ -163,6 +163,7 @@ tui = [
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
+    { name = "textual" },
 ]
 
 [package.metadata]
@@ -173,7 +174,10 @@ requires-dist = [
 provides-extras = ["tui"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "textual", specifier = ">=1.0" },
+]
 
 [[package]]
 name = "iniconfig"

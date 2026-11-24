@@ -612,6 +612,8 @@ class TrackScreen(Screen):
             self.app.notify("Enter both the order number and the email", severity="warning")
             return
         self.last = None
+        # Leave the inputs so f (follow) and r (check now) act instead of being typed.
+        self.set_focus(None)
         self.action_check()
 
     def action_check(self) -> None:
@@ -646,7 +648,7 @@ class TrackScreen(Screen):
         lines += [""] + [f"  {i['quantity']} × {escape(i['name'] or '')}  [dim]{peso(i.get('price'))}[/]"
                          for i in t["items"]]
         if t.get("total") is not None:
-            lines.append(f"  [b]Total {peso(float(t['total']))}[/]")
+            lines.append(f"  [b]Total {peso(t['total'])}[/]")
         lines.append("")
         if self.following:
             lines.append(f"[dim]Following since {self.since}. Last check {self.checked}. "

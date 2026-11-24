@@ -267,6 +267,17 @@ def cmd_slots(c: Client, a) -> dict[str, Any]:
     return out
 
 
+def _num(v: Any) -> float | int | None:
+    """The tracking endpoint sends money as strings ("1499"); return a number."""
+    if v is None or v == "":
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return int(f) if f.is_integer() else f
+
+
 def _track(c: Client, order: str, email: str) -> dict[str, Any]:
     r = c.post("track-order", {"contact_email": email, "order_name": order,
                                "show_shipping_address": False}, label="track order", allow=(422,))
@@ -280,10 +291,10 @@ def _track(c: Client, order: str, email: str) -> dict[str, Any]:
         "delivery_date": o.get("delivery_date"),
         "delivery_time": o.get("delivery_time"),
         "payment_type": o.get("payment_type"),
-        "total": o.get("total_price"),
+        "total": _num(o.get("total_price")),
         "currency": "PHP",
         "items": [{"name": i.get("product_name"), "quantity": i.get("quantity"),
-                   "price": i.get("price"), "slug": i.get("slug")}
+                   "price": _num(i.get("price")), "slug": i.get("slug")}
                   for i in o.get("new_order_items") or []],
     }
 

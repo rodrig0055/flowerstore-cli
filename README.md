@@ -12,9 +12,12 @@ API key.
 You need Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-uv tool install ./work/flowerstore-cli      # from this folder
+uv tool install "flowerstore-cli[tui] @ git+https://github.com/rodrig0055/flowerstore-cli"
 flowerstore --help
+flowerstore-tui
 ```
+
+Drop `[tui]` for the CLI alone.
 
 ## Quick start
 
@@ -46,7 +49,6 @@ flowerstore search "red roses" --city Makati --max 2000 --limit 3 \
 A full-screen app over the same functions, with mouse or keyboard:
 
 ```sh
-uv tool install './work/flowerstore-cli[tui]'
 flowerstore-tui
 ```
 
@@ -131,7 +133,7 @@ codes:
 ## Development
 
 ```sh
-uv sync
-uv run --group dev pytest       # offline tests: feed parsing, search, cutoffs
+uv sync --all-extras --group dev
+uv run pytest                   # offline: feed parsing, search, cutoffs, and the TUI against fake data
 uv run flowerstore hubs         # live
 ```
