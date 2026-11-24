@@ -27,6 +27,7 @@ class FakeStore:
     def __init__(self):
         self.calls = []
         self.status = "Processing"
+        self.stage = "Ready for production"
 
     def call(self, fn, *args):
         name = fn.__name__
@@ -53,7 +54,7 @@ class FakeStore:
             return {"date": a.date, "notice": None,
                     "slots": [{"name": "10AM - 1PM", "order_by": f"{a.date}T09:00:00+08:00"}]}
         if name == "_track":
-            return {"order": args[0], "status": self.status, "delivery_type": "DeliveryTimeFrame",
+            return {"order": args[0], "status": self.status, "stage": self.stage, "delivery_type": "DeliveryTimeFrame",
                     "delivery_date": TOMORROW, "delivery_time": "10AM - 1PM", "total": 1499,
                     "items": [{"name": "Beautiful You", "quantity": 1, "price": 1499}]}
         raise AssertionError(f"unexpected call {name}")
@@ -118,13 +119,13 @@ def test_track_and_follow_notices_a_change():
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.press("ctrl+o")
             await pilot.press(*"fs-1234567", "enter", *"me@example.com", "enter")
-            assert await until(pilot, lambda: "Processing" in text(app, "#track-status"))
+            assert await until(pilot, lambda: "Processing · Ready for production" in text(app, "#track-status"))
             assert "Total ₱1,499" in text(app, "#track-status")
             await pilot.press("f")
             assert await until(pilot, lambda: "Following since" in text(app, "#track-status"))
-            store.status = "Out for delivery"
+            store.stage = "Rider assigned"  # the store still says Processing
             await pilot.press("r")
-            assert await until(pilot, lambda: "Out for delivery" in text(app, "#track-status"))
+            assert await until(pilot, lambda: "Processing · Rider assigned" in text(app, "#track-status"))
             assert any("changed" in n.title for n in app._notifications)
     asyncio.run(run())
 

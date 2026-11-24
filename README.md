@@ -61,7 +61,8 @@ flowerstore-tui
 - **Photos:** the side pane and the gift page show the product photo. Kitty and Ghostty
   (Kitty graphics) and iTerm2, WezTerm, foot and Windows Terminal (Sixel) draw the real photo; other
   terminals, such as Apple Terminal and VS Code, get coloured half-blocks.
-- **Track my order:** order number and email. `f` follows it: it checks every 5 minutes while the
+- **Track my order:** order number and email. Where the store only says "Processing", the TUI adds
+  the step behind it, such as "Processing · Rider assigned". `f` follows it: it checks every 5 minutes while the
   screen is open, and rings and notifies when the status, date or slot changes.
 
 FlowerStore coral, blush and indigo, light or dark to match macOS (`ctrl+t` toggles). `f1` for help.
@@ -76,7 +77,7 @@ FlowerStore coral, blush and indigo, light or dark to match macOS (`ctrl+t` togg
 | `bestsellers` | The store's best sellers for a hub or city |
 | `product SLUG` | Description, tags, variants with prices for a date, blocked dates, recent reviews |
 | `slots SLUG` | Delivery slots still open for a date, each with the time orders close |
-| `track ORDER --email` | Status, delivery date and slot, items and total of your order |
+| `track ORDER --email` | Status, the step behind it (`stage`), delivery date and slot, items and total of your order |
 | `watch ORDER --email` | JSON Lines: one line per change, checked every 5 minutes (`--every`, min 60 s) |
 | `open SLUG` | Opens the product page (`--print` only prints the link) |
 

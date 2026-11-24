@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import webbrowser
+from collections import Counter
 from typing import Any
 
 from . import __version__, dates, feed
@@ -295,15 +296,38 @@ def _num(v: Any) -> float | int | None:
     return int(f) if f.is_integer() else f
 
 
+# The store's internal order steps (its `statuses` table). The tracking API words nine of them,
+# from "Ready for production" to "Off Loaded", as just "Processing", but it also returns each
+# item's step number, which follows the order's own step.
+STAGES = {
+    1: "Created", 2: "Accepted", 3: "Ready for production", 4: "In production",
+    5: "Ready to assemble", 6: "In assembly", 7: "Ready to ship", 8: "Rider assigned",
+    9: "Shipped", 10: "Delivered", 11: "Failed delivery", 12: "On hold", 15: "Completed",
+    16: "Cash pickup failed", 17: "Pending", 18: "Assembled", 19: "Quality check",
+    20: "In transit", 21: "Off-loaded", 22: "Returned", 24: "Loaded",
+}
+
+
+def _stage(status_id: Any) -> str | None:
+    try:
+        return STAGES.get(int(status_id))
+    except (TypeError, ValueError):
+        return None
+
+
 def _track(c: Client, order: str, email: str) -> dict[str, Any]:
     r = c.post("track-order", {"contact_email": email, "order_name": order},
                label="track order", allow=(422,))
     if r.status_code == 422:
         raise NotFoundError("No order with that number and email")
     o = r.json()
+    items = o.get("new_order_items") or []
+    stages = Counter(_stage(i.get("order_item_status_id")) for i in items)
+    stages.pop(None, None)
     return {
         "order": o.get("order_name"),
         "status": o.get("order_status"),
+        "stage": stages.most_common(1)[0][0] if stages else None,
         "delivery_type": o.get("delivery_type"),
         "delivery_date": o.get("delivery_date"),
         "delivery_time": o.get("delivery_time"),
@@ -311,8 +335,9 @@ def _track(c: Client, order: str, email: str) -> dict[str, Any]:
         "total": _num(o.get("total_price")),
         "currency": "PHP",
         "items": [{"name": i.get("product_name"), "quantity": i.get("quantity"),
-                   "price": _num(i.get("price")), "slug": i.get("slug")}
-                  for i in o.get("new_order_items") or []],
+                   "price": _num(i.get("price")), "slug": i.get("slug"),
+                   "stage": _stage(i.get("order_item_status_id"))}
+                  for i in items],
     }
 
 
@@ -322,7 +347,7 @@ def cmd_track(c: Client, a) -> dict[str, Any]:
 
 def cmd_watch(c: Client, a) -> None:
     every = max(60, a.every)
-    keys = ("status", "delivery_date", "delivery_time", "items")
+    keys = ("status", "stage", "delivery_date", "delivery_time", "items")
     last = None
     while True:
         try:

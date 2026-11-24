@@ -164,3 +164,27 @@ def test_track_sends_only_the_order_and_email():
     out = cli._track(c, "FS-1234567", "me@example.com")
     assert c.sent == ("track-order", {"contact_email": "me@example.com", "order_name": "FS-1234567"})
     assert out["status"] == "Processing" and out["total"] == 1499
+
+
+def test_track_shows_the_step_behind_processing():
+    from flowerstore_cli import cli
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"order_name": "FS-1234567", "order_status": "Processing", "total_price": "2998.00",
+                    "new_order_items": [
+                        {"product_name": "Beautiful You", "quantity": 1, "price": "1499.00", "order_item_status_id": 8},
+                        {"product_name": "Sunny Tulips", "quantity": 1, "price": "1499.00", "order_item_status_id": 8},
+                        {"product_name": "Card", "quantity": 1, "price": "0.00", "order_item_status_id": None},
+                    ]}
+
+    class FakeClient:
+        def post(self, path, payload=None, *, label, allow=()):
+            return FakeResponse()
+
+    out = cli._track(FakeClient(), "FS-1234567", "me@example.com")
+    assert (out["status"], out["stage"]) == ("Processing", "Rider assigned")
+    assert [i["stage"] for i in out["items"]] == ["Rider assigned", "Rider assigned", None]
+    assert cli._stage("99") is None and cli._stage(None) is None
