@@ -29,6 +29,13 @@ from textual.worker import get_current_worker
 from . import __version__, cli, dates
 from .client import Client, FlowerstoreError
 
+try:
+    # Imported before the app starts, so it can ask the terminal what graphics it supports:
+    # Kitty graphics or Sixel draw the real photo, anything else gets coloured half-blocks.
+    from textual_image.widget import Image as Photo
+except ImportError:  # installed without the [tui] extra's image support
+    Photo = None
+
 # -- look ------------------------------------------------------------------------------------
 
 LIGHT = Theme(
@@ -85,6 +92,8 @@ Screen { background: $background; color: $foreground; }
 #split { height: 1fr; }
 #table { width: 3fr; }
 #detail { width: 2fr; padding: 0 1; background: $surface; border-left: tall $panel; }
+#detail-img { width: auto; height: 12; margin-top: 1; }
+#product-img { width: auto; height: 18; margin: 0 1 1 3; }
 DataTable > .datatable--cursor { background: $primary; color: #302D6F; }
 DataTable > .datatable--header { color: $text-muted; text-style: bold; background: $surface; }
 #product { padding: 1 2; }
@@ -137,6 +146,51 @@ def nice_time(iso: str | None) -> str:
     when = "today" if day == today else "tomorrow" if day == today + dt.timedelta(days=1) \
         else day.strftime("%a %-d %b")
     return f"{when} {t.strftime('%-I:%M %p')}"
+
+
+_photos: dict[str, Any] = {}
+
+
+def fetch_photo(url: str | None) -> Any:
+    """The product photo as a PIL image, or None when there is none or it can't be loaded.
+
+    Photos are public files on the storefront's asset host, so they are fetched outside the shared
+    store session (and its lock). A missing photo never stops the rest of the gift from showing.
+    """
+    if not url or Photo is None:
+        return None
+    if url in _photos:
+        return _photos[url]
+    img = None
+    try:
+        import io
+
+        from curl_cffi import requests
+        from PIL import Image as PILImage
+
+        r = requests.get(url, impersonate="chrome", timeout=15)
+        if r.status_code == 200:
+            img = PILImage.open(io.BytesIO(r.content))
+            img.load()
+    except Exception:
+        img = None
+    if len(_photos) > 64:
+        _photos.clear()
+    _photos[url] = img
+    return img
+
+
+def photo_url(data: dict[str, Any]) -> str | None:
+    images = (data.get("product") or {}).get("images") or []
+    return images[0] if images else None
+
+
+def show_photo(screen: Screen, selector: str, img: Any) -> None:
+    if Photo is None:
+        return
+    widget = screen.query_one(selector, Photo)
+    widget.image = img
+    widget.display = img is not None
 
 
 def system_is_dark() -> bool:
@@ -344,6 +398,8 @@ class ResultsScreen(Screen):
         with Horizontal(id="split"):
             yield DataTable(id="table", cursor_type="row", zebra_stripes=True)
             with VerticalScroll(id="detail"):
+                if Photo is not None:
+                    yield Photo(id="detail-img")
                 yield Static("", id="detail-body")
         yield Footer()
 
@@ -417,6 +473,7 @@ class ResultsScreen(Screen):
         if slug in self._detail_cache:
             self.render_detail(self._detail_cache[slug])
             return
+        show_photo(self, "#detail-img", None)
         self.query_one("#detail-body", Static).update("[dim]Loading prices and slots…[/]")
         if self._timer:
             self._timer.stop()
@@ -428,6 +485,8 @@ class ResultsScreen(Screen):
             data = load_product(self.app.store, slug, self.loc, self.day)
         except FlowerstoreError as e:
             data = {"error": str(e), "slug": slug}
+        if "error" not in data:
+            data["photo"] = fetch_photo(photo_url(data))
         if get_current_worker().is_cancelled:
             return
         self.app.call_from_thread(self.detail_loaded, slug, data)
@@ -444,6 +503,7 @@ class ResultsScreen(Screen):
             self.render_detail(data)
 
     def render_detail(self, data: dict[str, Any]) -> None:
+        show_photo(self, "#detail-img", data.get("photo"))
         self.query_one("#detail-body", Static).update(detail_markup(data, compact=True))
 
     def current_slug(self) -> str | None:
@@ -548,20 +608,28 @@ class ProductScreen(Screen):
                 yield Button("Buy on flowerstore.ph", id="buy", classes="primary-btn")
                 yield Button("Day before  [", id="prev")
                 yield Button("Day after  ]", id="next")
+            if Photo is not None:
+                yield Photo(id="product-img")
             yield Static("[dim]Loading…[/]", id="product-body", classes="panel")
         yield Footer()
 
     def on_mount(self) -> None:
+        show_photo(self, "#product-img", None)
         self.load()
 
     @work(thread=True, exclusive=True, group="product")
     def load(self) -> None:
         try:
             data = load_product(self.app.store, self.slug, self.loc, self.day)
+            data["photo"] = fetch_photo(photo_url(data))
         except FlowerstoreError as e:
             data = {"error": str(e)}
-        self.app.call_from_thread(self.query_one("#product-body", Static).update,
-                                  detail_markup(data, compact=False))
+        self.app.call_from_thread(self.show, data)
+
+    def show(self, data: dict[str, Any]) -> None:
+        if "error" not in data:  # a failed day keeps the photo already shown
+            show_photo(self, "#product-img", data.get("photo"))
+        self.query_one("#product-body", Static).update(detail_markup(data, compact=False))
 
     def action_day(self, step: int) -> None:
         new = self.day + dt.timedelta(days=step)

@@ -17,6 +17,12 @@ PRODUCTS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def no_photo_downloads(monkeypatch):
+    # Photos are fetched outside the store; keep every test offline unless it fakes them itself.
+    monkeypatch.setattr(tui, "fetch_photo", lambda url: None)
+
+
 class FakeStore:
     def __init__(self):
         self.calls = []
@@ -38,7 +44,7 @@ class FakeStore:
         if name == "_product_props":
             return {"product": {"id": 1, "slug": a, "name": "Beautiful You", "vendor_id": 1}}
         if name == "cmd_product":
-            return {"name": "Beautiful You (12 Roses)", "location": a.loc, "advance_days": 0,
+            return {"name": "Beautiful You (12 Roses)", "images": ["https://img.example/beautiful-you.webp"], "location": a.loc, "advance_days": 0,
                     "description": "Twelve red roses.", "tags": ["Romance"], "blocked_dates": [],
                     "recent_reviews": [{"rating": 5, "comment": "Lovely"}],
                     "variants": [{"name": "Standard", "price": 1499, "regular_price": 3699,
@@ -121,3 +127,40 @@ def test_track_and_follow_notices_a_change():
             assert await until(pilot, lambda: "Out for delivery" in text(app, "#track-status"))
             assert any("changed" in n.title for n in app._notifications)
     asyncio.run(run())
+
+
+def test_photo_shows_in_side_pane_and_gift_page_and_hides_when_missing(monkeypatch):
+    if tui.Photo is None:
+        pytest.skip("textual-image not installed")
+    from PIL import Image as PILImage
+
+    asked = []
+
+    def fake_fetch(url):
+        asked.append(url)
+        return PILImage.new("RGB", (40, 40), "#F78F7B") if url else None
+
+    monkeypatch.setattr(tui, "fetch_photo", fake_fetch)
+
+    async def run():
+        app = tui.FlowerstoreApp()
+        app.store = FakeStore()
+        async with app.run_test(size=(130, 42)) as pilot:
+            await pilot.press(*"roses", "tab", *"makati")
+            assert await until(pilot, lambda: app.screen.query_one("#city-list").has_class("open"))
+            await pilot.press("down", "enter", "enter")
+            assert await until(pilot, lambda: isinstance(app.screen, tui.ResultsScreen)
+                               and "Lovely" not in text(app, "#detail-body")
+                               and "₱1,499" in text(app, "#detail-body"))
+            assert app.screen.query_one("#detail-img").display is True
+            await pilot.press("enter")
+            assert await until(pilot, lambda: isinstance(app.screen, tui.ProductScreen)
+                               and "Lovely" in text(app, "#product-body"))
+            assert app.screen.query_one("#product-img").display is True
+            assert asked and all(u == "https://img.example/beautiful-you.webp" for u in asked)
+    asyncio.run(run())
+
+
+def test_no_photo_url_hides_the_photo():
+    assert tui.photo_url({"product": {"images": []}}) is None
+    assert tui.fetch_photo(None) is None

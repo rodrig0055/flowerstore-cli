@@ -13,6 +13,7 @@ flowerstore-tui = "flowerstore_cli.tui:main"
 [project.optional-dependencies]
 tui = [
     "textual>=1.0",
+    "textual-image>=0.8",
 ]
 
 [build-system]
@@ -23,7 +24,7 @@ build-backend = "hatchling.build"
 packages = ["src/flowerstore_cli"]
 
 [dependency-groups]
-dev = ["pytest>=8", "textual>=1.0"]
+dev = ["pytest>=8", "textual>=1.0", "textual-image>=0.8"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
